@@ -109,6 +109,7 @@ func waitForServiceDescribable(service *Service) error {
 func waitForServiceTasks(service *Service, ecsServiceName string) error {
 	eventsLogged := make(map[string]bool)
 	var lastRunningCount int64
+	var rolloutState string
 	lastRunningCountChangedAt := time.Now()
 	timeOut := float64(DefaultUpdateServiceTimeout)
 	actionInvokedAt := time.Now()
@@ -150,16 +151,37 @@ func waitForServiceTasks(service *Service, ecsServiceName string) error {
 			logNewServiceEvents(eventsLogged, ecsService.Events, actionInvokedAt)
 		}
 
-		// The deployment was successful
-		if len(ecsService.Deployments) == 1 && desiredCount == runningCount {
-			log.WithFields(logFields).Info("ECS Service has reached a stable state")
-			return true, nil
-		}
+		deploymentCircuitBreakerEnabled := service.Context().CLIContext.Bool(flags.DeploymentCircuitBreakerEnableFlag)
+		// if using the circuit breaker
+		if deploymentCircuitBreakerEnabled {
+			// get current rollout state of primary deployment
+			for _, deployment := range *&ecsService.Deployments {
+				status := *deployment.Status
+				if status == "PRIMARY" {
+					rolloutState = *deployment.RolloutState
+				}
+			}
 
-		if time.Since(lastRunningCountChangedAt).Minutes() > timeOut {
-			return false, fmt.Errorf("Deployment has not completed: Running count has not changed for %.2f minutes", timeOut)
-		}
+			// either deployment or rollback was successful
+			if rolloutState == "COMPLETED" {
+				log.WithFields(logFields).Info("ECS Service deployment has reached a completed state")
+				return true, nil
+			}
 
+			if rolloutState == "FAILED" {
+				return false, fmt.Errorf("Deployment circuit breaker has marked the rollout state as %s\n", rolloutState)
+			}
+		} else {
+			// The deployment was successful
+			if len(ecsService.Deployments) == 1 && desiredCount == runningCount {
+				log.WithFields(logFields).Info("ECS Service has reached a stable state")
+				return true, nil
+			}
+
+			if time.Since(lastRunningCountChangedAt).Minutes() > timeOut {
+				return false, fmt.Errorf("Deployment has not completed: Running count has not changed for %.2f minutes", timeOut)
+			}
+		}
 		return false, nil
 
 	}, service)

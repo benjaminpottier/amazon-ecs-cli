@@ -205,6 +205,8 @@ func deleteServiceDiscoveryFlags() []cli.Flag {
 func deploymentConfigFlags(specifyDefaults bool) []cli.Flag {
 	maxPercentUsageString := "[Optional] Specifies the upper limit (as a percentage of the service's desiredCount) of the number of running tasks that can be running in a service during a deployment."
 	minHealthyPercentUsageString := "[Optional] Specifies the lower limit (as a percentage of the service's desiredCount) of the number of running tasks that must remain running and healthy in a service during a deployment."
+	deploymentCircuitBreakerEnableUsageString := "[Optional] Whether to enable the deployment circuit breaker logic for the service."
+	deploymentCircuitBreakerRollbackUsageString := "[Optional] Whether to enable Amazon ECS to roll back the service if a service deployment fails. If rollback is enabled, when a service deployment fails, the service is rolled back to the last deployment that completed successfully."
 	if specifyDefaults {
 		maxPercentUsageString += fmt.Sprintf(" Defaults to %d.", flags.DeploymentMaxPercentDefaultValue)
 		minHealthyPercentUsageString += fmt.Sprintf(" Defaults to %d.", flags.DeploymentMinHealthyPercentDefaultValue)
@@ -217,6 +219,14 @@ func deploymentConfigFlags(specifyDefaults bool) []cli.Flag {
 		cli.StringFlag{
 			Name:  flags.DeploymentMinHealthyPercentFlag,
 			Usage: minHealthyPercentUsageString,
+		},
+		cli.StringFlag{
+			Name:  flags.DeploymentCircuitBreakerEnableFlag,
+			Usage: deploymentCircuitBreakerEnableUsageString,
+		},
+		cli.StringFlag{
+			Name:  flags.DeploymentCircuitBreakerRollbackFlag,
+			Usage: deploymentCircuitBreakerRollbackUsageString,
 		},
 	}
 }
