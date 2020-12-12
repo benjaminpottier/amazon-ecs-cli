@@ -1003,6 +1003,11 @@ func (c *ResourceGroupsTaggingAPI) TagResourcesRequest(input *TagResourcesInput)
 //    service that the resource belongs to as well as permissions for adding
 //    tags. For more information, see this list (http://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/Welcome.html).
 //
+// Do not store personally identifiable information (PII) or other confidential
+// or sensitive information in tags. We use tags to provide you with billing
+// and administration services. Tags are not intended to be used for private
+// or sensitive data.
+//
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
@@ -2341,8 +2346,8 @@ func (s *Summary) SetTargetIdType(v string) *Summary {
 }
 
 // The metadata that you apply to AWS resources to help you categorize and organize
-// them. Each tag consists of a key and an optional value, both of which you
-// define. For more information, see Tagging AWS Resources (http://docs.aws.amazon.com/general/latest/gr/aws_tagging.html)
+// them. Each tag consists of a key and a value, both of which you define. For
+// more information, see Tagging AWS Resources (http://docs.aws.amazon.com/general/latest/gr/aws_tagging.html)
 // in the AWS General Reference.
 type Tag struct {
 	_ struct{} `type:"structure"`
@@ -2353,8 +2358,8 @@ type Tag struct {
 	// Key is a required field
 	Key *string `min:"1" type:"string" required:"true"`
 
-	// The optional part of a key-value pair that make up a tag. A value acts as
-	// a descriptor within a tag category (key).
+	// One part of a key-value pair that make up a tag. A value acts as a descriptor
+	// within a tag category (key). The value can be empty or null.
 	//
 	// Value is a required field
 	Value *string `type:"string" required:"true"`
@@ -2391,8 +2396,8 @@ type TagFilter struct {
 	// that acts like a category for more specific tag values.
 	Key *string `min:"1" type:"string"`
 
-	// The optional part of a key-value pair that make up a tag. A value acts as
-	// a descriptor within a tag category (key).
+	// One part of a key-value pair that make up a tag. A value acts as a descriptor
+	// within a tag category (key). The value can be empty or null.
 	Values []*string `type:"list"`
 }
 
@@ -2435,9 +2440,8 @@ type TagResourcesInput struct {
 	_ struct{} `type:"structure"`
 
 	// A list of ARNs. An ARN (Amazon Resource Name) uniquely identifies a resource.
-	// You can specify a minimum of 1 and a maximum of 20 ARNs (resources) to tag.
-	// An ARN can be set to a maximum of 1600 characters. For more information,
-	// see Amazon Resource Names (ARNs) and AWS Service Namespaces (http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
+	// For more information, see Amazon Resource Names (ARNs) and AWS Service Namespaces
+	// (http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
 	// in the AWS General Reference.
 	//
 	// ResourceARNList is a required field
@@ -2580,9 +2584,8 @@ type UntagResourcesInput struct {
 	_ struct{} `type:"structure"`
 
 	// A list of ARNs. An ARN (Amazon Resource Name) uniquely identifies a resource.
-	// You can specify a minimum of 1 and a maximum of 20 ARNs (resources) to untag.
-	// An ARN can be set to a maximum of 1600 characters. For more information,
-	// see Amazon Resource Names (ARNs) and AWS Service Namespaces (http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
+	// For more information, see Amazon Resource Names (ARNs) and AWS Service Namespaces
+	// (http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
 	// in the AWS General Reference.
 	//
 	// ResourceARNList is a required field
@@ -2670,6 +2673,14 @@ const (
 	ErrorCodeInvalidParameterException = "InvalidParameterException"
 )
 
+// ErrorCode_Values returns all elements of the ErrorCode enum
+func ErrorCode_Values() []string {
+	return []string{
+		ErrorCodeInternalServiceException,
+		ErrorCodeInvalidParameterException,
+	}
+}
+
 const (
 	// GroupByAttributeTargetId is a GroupByAttribute enum value
 	GroupByAttributeTargetId = "TARGET_ID"
@@ -2681,6 +2692,15 @@ const (
 	GroupByAttributeResourceType = "RESOURCE_TYPE"
 )
 
+// GroupByAttribute_Values returns all elements of the GroupByAttribute enum
+func GroupByAttribute_Values() []string {
+	return []string{
+		GroupByAttributeTargetId,
+		GroupByAttributeRegion,
+		GroupByAttributeResourceType,
+	}
+}
+
 const (
 	// TargetIdTypeAccount is a TargetIdType enum value
 	TargetIdTypeAccount = "ACCOUNT"
@@ -2691,3 +2711,12 @@ const (
 	// TargetIdTypeRoot is a TargetIdType enum value
 	TargetIdTypeRoot = "ROOT"
 )
+
+// TargetIdType_Values returns all elements of the TargetIdType enum
+func TargetIdType_Values() []string {
+	return []string{
+		TargetIdTypeAccount,
+		TargetIdTypeOu,
+		TargetIdTypeRoot,
+	}
+}
