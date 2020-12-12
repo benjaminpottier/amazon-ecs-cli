@@ -1,9 +1,8 @@
 package client // import "github.com/docker/docker/client"
 
 import (
-	"context"
-
 	"github.com/docker/docker/api/types/swarm"
+	"golang.org/x/net/context"
 )
 
 // SwarmJoin joins the swarm.

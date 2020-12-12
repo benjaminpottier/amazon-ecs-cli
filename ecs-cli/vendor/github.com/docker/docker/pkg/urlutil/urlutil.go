@@ -9,15 +9,7 @@ import (
 
 var (
 	validPrefixes = map[string][]string{
-		"url": {"http://", "https://"},
-
-		// The github.com/ prefix is a special case used to treat context-paths
-		// starting with `github.com` as a git URL if the given path does not
-		// exist locally. The "github.com/" prefix is kept for backward compatibility,
-		// and is a legacy feature.
-		//
-		// Going forward, no additional prefixes should be added, and users should
-		// be encouraged to use explicit URLs (https://github.com/user/repo.git) instead.
+		"url":       {"http://", "https://"},
 		"git":       {"git://", "github.com/", "git@"},
 		"transport": {"tcp://", "tcp+tls://", "udp://", "unix://", "unixgram://"},
 	}

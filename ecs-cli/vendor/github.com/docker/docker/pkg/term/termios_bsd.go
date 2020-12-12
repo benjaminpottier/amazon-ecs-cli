@@ -1,4 +1,4 @@
-// +build darwin freebsd openbsd netbsd
+// +build darwin freebsd openbsd
 
 package term // import "github.com/docker/docker/pkg/term"
 

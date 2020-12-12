@@ -1,10 +1,8 @@
 package client // import "github.com/docker/docker/client"
 
 import (
-	"context"
 	"io"
 	"net"
-	"net/http"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -16,6 +14,7 @@ import (
 	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/api/types/swarm"
 	volumetypes "github.com/docker/docker/api/types/volume"
+	"golang.org/x/net/context"
 )
 
 // CommonAPIClient is the common methods between stable and experimental versions of APIClient.
@@ -34,13 +33,10 @@ type CommonAPIClient interface {
 	VolumeAPIClient
 	ClientVersion() string
 	DaemonHost() string
-	HTTPClient() *http.Client
 	ServerVersion(ctx context.Context) (types.Version, error)
 	NegotiateAPIVersion(ctx context.Context)
 	NegotiateAPIVersionPing(types.Ping)
-	DialHijack(ctx context.Context, url, proto string, meta map[string][]string) (net.Conn, error)
-	Dialer() func(context.Context) (net.Conn, error)
-	Close() error
+	DialSession(ctx context.Context, proto string, meta map[string][]string) (net.Conn, error)
 }
 
 // ContainerAPIClient defines API client methods for the containers
@@ -86,8 +82,7 @@ type DistributionAPIClient interface {
 // ImageAPIClient defines API client methods for the images
 type ImageAPIClient interface {
 	ImageBuild(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error)
-	BuildCachePrune(ctx context.Context, opts types.BuildCachePruneOptions) (*types.BuildCachePruneReport, error)
-	BuildCancel(ctx context.Context, id string) error
+	BuildCachePrune(ctx context.Context) (*types.BuildCachePruneReport, error)
 	ImageCreate(ctx context.Context, parentReference string, options types.ImageCreateOptions) (io.ReadCloser, error)
 	ImageHistory(ctx context.Context, image string) ([]image.HistoryResponseItem, error)
 	ImageImport(ctx context.Context, source types.ImageImportSource, ref string, options types.ImageImportOptions) (io.ReadCloser, error)
@@ -172,10 +167,10 @@ type SystemAPIClient interface {
 
 // VolumeAPIClient defines API client methods for the volumes
 type VolumeAPIClient interface {
-	VolumeCreate(ctx context.Context, options volumetypes.VolumeCreateBody) (types.Volume, error)
+	VolumeCreate(ctx context.Context, options volumetypes.VolumesCreateBody) (types.Volume, error)
 	VolumeInspect(ctx context.Context, volumeID string) (types.Volume, error)
 	VolumeInspectWithRaw(ctx context.Context, volumeID string) (types.Volume, []byte, error)
-	VolumeList(ctx context.Context, filter filters.Args) (volumetypes.VolumeListOKBody, error)
+	VolumeList(ctx context.Context, filter filters.Args) (volumetypes.VolumesListOKBody, error)
 	VolumeRemove(ctx context.Context, volumeID string, force bool) error
 	VolumesPrune(ctx context.Context, pruneFilter filters.Args) (types.VolumesPruneReport, error)
 }

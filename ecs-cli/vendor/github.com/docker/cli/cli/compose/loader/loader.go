@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"time"
 
 	interp "github.com/docker/cli/cli/compose/interpolation"
 	"github.com/docker/cli/cli/compose/schema"
@@ -32,14 +31,6 @@ type Options struct {
 	SkipInterpolation bool
 	// Interpolation options
 	Interpolate *interp.Options
-	// Discard 'env_file' entries after resolving to 'environment' section
-	discardEnvFiles bool
-}
-
-// WithDiscardEnvFiles sets the Options to discard the `env_file` section after resolving to
-// the `environment` section
-func WithDiscardEnvFiles(opts *Options) {
-	opts.discardEnvFiles = true
 }
 
 // ParseYAML reads the bytes from a file, parses the bytes into a mapping
@@ -113,11 +104,6 @@ func Load(configDetails types.ConfigDetails, options ...func(*Options)) (*types.
 			return nil, err
 		}
 		cfg.Filename = file.Filename
-		if opts.discardEnvFiles {
-			for i := range cfg.Services {
-				cfg.Services[i].EnvFile = nil
-			}
-		}
 
 		configs = append(configs, cfg)
 	}
@@ -279,9 +265,9 @@ func getServices(configDict map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{}
 }
 
-// Transform converts the source into the target struct with compose types transformer
+// Transform converts the source map into the target struct with compose types transformer
 // and the specified transformers if any.
-func Transform(source interface{}, target interface{}, additionalTransformers ...Transformer) error {
+func Transform(source map[string]interface{}, target interface{}, additionalTransformers ...Transformer) error {
 	data := mapstructure.Metadata{}
 	config := &mapstructure.DecoderConfig{
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
@@ -297,13 +283,10 @@ func Transform(source interface{}, target interface{}, additionalTransformers ..
 	return decoder.Decode(source)
 }
 
-// TransformerFunc defines a function to perform the actual transformation
-type TransformerFunc func(interface{}) (interface{}, error)
-
 // Transformer defines a map to type transformer
 type Transformer struct {
 	TypeOf reflect.Type
-	Func   TransformerFunc
+	Func   func(interface{}) (interface{}, error)
 }
 
 func createTransformHook(additionalTransformers ...Transformer) mapstructure.DecodeHookFuncType {
@@ -320,14 +303,12 @@ func createTransformHook(additionalTransformers ...Transformer) mapstructure.Dec
 		reflect.TypeOf(types.ServiceConfigObjConfig{}):           transformStringSourceMap,
 		reflect.TypeOf(types.StringOrNumberList{}):               transformStringOrNumberList,
 		reflect.TypeOf(map[string]*types.ServiceNetworkConfig{}): transformServiceNetworkMap,
-		reflect.TypeOf(types.Mapping{}):                          transformMappingOrListFunc("=", false),
 		reflect.TypeOf(types.MappingWithEquals{}):                transformMappingOrListFunc("=", true),
 		reflect.TypeOf(types.Labels{}):                           transformMappingOrListFunc("=", false),
 		reflect.TypeOf(types.MappingWithColon{}):                 transformMappingOrListFunc(":", false),
 		reflect.TypeOf(types.HostsList{}):                        transformListOrMappingFunc(":", false),
 		reflect.TypeOf(types.ServiceVolumeConfig{}):              transformServiceVolumeConfig,
 		reflect.TypeOf(types.BuildConfig{}):                      transformBuildConfig,
-		reflect.TypeOf(types.Duration(0)):                        transformStringToDuration,
 	}
 
 	for _, transformer := range additionalTransformers {
@@ -651,8 +632,7 @@ func LoadConfigObjs(source map[string]interface{}, details types.ConfigDetails) 
 
 func loadFileObjectConfig(name string, objType string, obj types.FileObjectConfig, details types.ConfigDetails) (types.FileObjectConfig, error) {
 	// if "external: true"
-	switch {
-	case obj.External.External:
+	if obj.External.External {
 		// handle deprecated external.name
 		if obj.External.Name != "" {
 			if obj.Name != "" {
@@ -669,11 +649,7 @@ func loadFileObjectConfig(name string, objType string, obj types.FileObjectConfi
 			}
 		}
 		// if not "external: true"
-	case obj.Driver != "":
-		if obj.File != "" {
-			return obj, errors.Errorf("%[1]s %[2]s: %[1]s.driver and %[1]s.file conflict; only use %[1]s.driver", objType, name)
-		}
-	default:
+	} else {
 		obj.File = absPath(details.WorkingDir, obj.File)
 	}
 
@@ -687,7 +663,7 @@ func absPath(workingDir string, filePath string) string {
 	return filepath.Join(workingDir, filePath)
 }
 
-var transformMapStringString TransformerFunc = func(data interface{}) (interface{}, error) {
+func transformMapStringString(data interface{}) (interface{}, error) {
 	switch value := data.(type) {
 	case map[string]interface{}:
 		return toMapStringString(value, false), nil
@@ -698,7 +674,7 @@ var transformMapStringString TransformerFunc = func(data interface{}) (interface
 	}
 }
 
-var transformExternal TransformerFunc = func(data interface{}) (interface{}, error) {
+func transformExternal(data interface{}) (interface{}, error) {
 	switch value := data.(type) {
 	case bool:
 		return map[string]interface{}{"external": value}, nil
@@ -709,7 +685,7 @@ var transformExternal TransformerFunc = func(data interface{}) (interface{}, err
 	}
 }
 
-var transformServicePort TransformerFunc = func(data interface{}) (interface{}, error) {
+func transformServicePort(data interface{}) (interface{}, error) {
 	switch entries := data.(type) {
 	case []interface{}:
 		// We process the list instead of individual items here.
@@ -742,7 +718,7 @@ var transformServicePort TransformerFunc = func(data interface{}) (interface{}, 
 	}
 }
 
-var transformStringSourceMap TransformerFunc = func(data interface{}) (interface{}, error) {
+func transformStringSourceMap(data interface{}) (interface{}, error) {
 	switch value := data.(type) {
 	case string:
 		return map[string]interface{}{"source": value}, nil
@@ -753,7 +729,7 @@ var transformStringSourceMap TransformerFunc = func(data interface{}) (interface
 	}
 }
 
-var transformBuildConfig TransformerFunc = func(data interface{}) (interface{}, error) {
+func transformBuildConfig(data interface{}) (interface{}, error) {
 	switch value := data.(type) {
 	case string:
 		return map[string]interface{}{"context": value}, nil
@@ -764,7 +740,7 @@ var transformBuildConfig TransformerFunc = func(data interface{}) (interface{}, 
 	}
 }
 
-var transformServiceVolumeConfig TransformerFunc = func(data interface{}) (interface{}, error) {
+func transformServiceVolumeConfig(data interface{}) (interface{}, error) {
 	switch value := data.(type) {
 	case string:
 		return ParseVolume(value)
@@ -775,7 +751,7 @@ var transformServiceVolumeConfig TransformerFunc = func(data interface{}) (inter
 	}
 }
 
-var transformServiceNetworkMap TransformerFunc = func(value interface{}) (interface{}, error) {
+func transformServiceNetworkMap(value interface{}) (interface{}, error) {
 	if list, ok := value.([]interface{}); ok {
 		mapValue := map[interface{}]interface{}{}
 		for _, name := range list {
@@ -786,7 +762,7 @@ var transformServiceNetworkMap TransformerFunc = func(value interface{}) (interf
 	return value, nil
 }
 
-var transformStringOrNumberList TransformerFunc = func(value interface{}) (interface{}, error) {
+func transformStringOrNumberList(value interface{}) (interface{}, error) {
 	list := value.([]interface{})
 	result := make([]string, len(list))
 	for i, item := range list {
@@ -795,7 +771,7 @@ var transformStringOrNumberList TransformerFunc = func(value interface{}) (inter
 	return result, nil
 }
 
-var transformStringList TransformerFunc = func(data interface{}) (interface{}, error) {
+func transformStringList(data interface{}) (interface{}, error) {
 	switch value := data.(type) {
 	case string:
 		return []string{value}, nil
@@ -806,13 +782,13 @@ var transformStringList TransformerFunc = func(data interface{}) (interface{}, e
 	}
 }
 
-func transformMappingOrListFunc(sep string, allowNil bool) TransformerFunc {
+func transformMappingOrListFunc(sep string, allowNil bool) func(interface{}) (interface{}, error) {
 	return func(data interface{}) (interface{}, error) {
 		return transformMappingOrList(data, sep, allowNil), nil
 	}
 }
 
-func transformListOrMappingFunc(sep string, allowNil bool) TransformerFunc {
+func transformListOrMappingFunc(sep string, allowNil bool) func(interface{}) (interface{}, error) {
 	return func(data interface{}) (interface{}, error) {
 		return transformListOrMapping(data, sep, allowNil), nil
 	}
@@ -851,14 +827,14 @@ func transformMappingOrList(mappingOrList interface{}, sep string, allowNil bool
 	panic(errors.Errorf("expected a map or a list, got %T: %#v", mappingOrList, mappingOrList))
 }
 
-var transformShellCommand TransformerFunc = func(value interface{}) (interface{}, error) {
+func transformShellCommand(value interface{}) (interface{}, error) {
 	if str, ok := value.(string); ok {
 		return shellwords.Parse(str)
 	}
 	return value, nil
 }
 
-var transformHealthCheckTest TransformerFunc = func(data interface{}) (interface{}, error) {
+func transformHealthCheckTest(data interface{}) (interface{}, error) {
 	switch value := data.(type) {
 	case string:
 		return append([]string{"CMD-SHELL"}, value), nil
@@ -869,7 +845,7 @@ var transformHealthCheckTest TransformerFunc = func(data interface{}) (interface
 	}
 }
 
-var transformSize TransformerFunc = func(value interface{}) (interface{}, error) {
+func transformSize(value interface{}) (interface{}, error) {
 	switch value := value.(type) {
 	case int:
 		return int64(value), nil
@@ -877,19 +853,6 @@ var transformSize TransformerFunc = func(value interface{}) (interface{}, error)
 		return units.RAMInBytes(value)
 	}
 	panic(errors.Errorf("invalid type for size %T", value))
-}
-
-var transformStringToDuration TransformerFunc = func(value interface{}) (interface{}, error) {
-	switch value := value.(type) {
-	case string:
-		d, err := time.ParseDuration(value)
-		if err != nil {
-			return value, err
-		}
-		return types.Duration(d), nil
-	default:
-		return value, errors.Errorf("invalid type %T for duration", value)
-	}
 }
 
 func toServicePortConfigs(value string) ([]interface{}, error) {
