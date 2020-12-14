@@ -109,7 +109,6 @@ func waitForServiceDescribable(service *Service) error {
 func waitForServiceTasks(service *Service, ecsServiceName string) error {
 	eventsLogged := make(map[string]bool)
 	var lastRunningCount int64
-	var rolloutState string
 	lastRunningCountChangedAt := time.Now()
 	timeOut := float64(DefaultUpdateServiceTimeout)
 	actionInvokedAt := time.Now()
@@ -151,6 +150,9 @@ func waitForServiceTasks(service *Service, ecsServiceName string) error {
 			logNewServiceEvents(eventsLogged, ecsService.Events, actionInvokedAt)
 		}
 
+		var rolloutState string
+		var rolloutStateReason string
+
 		deploymentCircuitBreakerEnabled := service.Context().CLIContext.Bool(flags.DeploymentCircuitBreakerEnableFlag)
 		// if using the circuit breaker
 		if deploymentCircuitBreakerEnabled {
@@ -159,17 +161,18 @@ func waitForServiceTasks(service *Service, ecsServiceName string) error {
 				status := *deployment.Status
 				if status == "PRIMARY" {
 					rolloutState = *deployment.RolloutState
+					rolloutStateReason = *deployment.RolloutStateReason
 				}
 			}
 
 			// either deployment or rollback was successful
 			if rolloutState == "COMPLETED" {
-				log.WithFields(logFields).Info("ECS Service deployment has reached a completed state")
+				log.WithFields(logFields).Info(aws.StringValue(&rolloutStateReason))
 				return true, nil
 			}
 
 			if rolloutState == "FAILED" {
-				return false, fmt.Errorf("Deployment circuit breaker has marked the rollout state as %s\n", rolloutState)
+				return false, fmt.Errorf("%s\n", rolloutStateReason)
 			}
 		} else {
 			// The deployment was successful
